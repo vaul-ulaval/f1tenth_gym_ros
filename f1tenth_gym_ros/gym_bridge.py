@@ -42,6 +42,7 @@ class GymBridge(Node):
     def __init__(self):
         super().__init__('gym_bridge')
 
+        self.num_agents = self.declare_parameter('number_of_agents').value
         self.agent_names = self.declare_parameter('agent_names').value
         self.scan_distance_to_base_link = self.declare_parameter('scan_distance_to_base_link').value
         self.scan_fov = self.declare_parameter('scan_fov').value
@@ -51,7 +52,6 @@ class GymBridge(Node):
         update_rate = self.declare_parameter('update_rate').value
 
         # check num_agents
-        self.num_agents = len(self.agent_names)
         if self.num_agents < 1:
             raise ValueError('num_agents should be higher than one.')
 
