@@ -60,6 +60,12 @@ class GymBridge(Node):
         map_img_ext = self.declare_parameter("map_img_ext").value
         update_rate = self.declare_parameter("update_rate", 40.0).value
 
+        self.drive_topic: str = self.declare_parameter("drive_topic").value or "/drive"
+        self.odom_topic: str = (
+            self.declare_parameter("odom_topic").value or "/pf/pose/odom"
+        )
+        self.base_link: str = self.declare_parameter("base_link").value or "/laser"
+
         # env backend
         self.env = gym.make(
             "f110_gym:f110-v0",
@@ -110,7 +116,7 @@ class GymBridge(Node):
         self.drive_published = np.zeros(self.num_agents, dtype=bool)
         for agent_name in self.agent_names:
             scan_pub = self.create_publisher(LaserScan, agent_name + "/scan", 10)
-            odom_pub = self.create_publisher(Odometry, agent_name + "/odom", 10)
+            odom_pub = self.create_publisher(Odometry, self.odom_topic, 10)
             self.scan_pubs.append(scan_pub)
             self.odom_pubs.append(odom_pub)
 
@@ -118,7 +124,7 @@ class GymBridge(Node):
         for i, agent_name in enumerate(self.agent_names):
             self.create_subscription(
                 AckermannDriveStamped,
-                agent_name + "/drive",
+                self.drive_topic,
                 lambda x, idx=i: self.drive_callback(x, idx),
                 10,
             )
@@ -203,7 +209,7 @@ class GymBridge(Node):
         odom_msg = Odometry()
         odom_msg.header.stamp = timestamp
         odom_msg.header.frame_id = "map"
-        odom_msg.child_frame_id = self.agent_names[agent_idx] + "/base_link"
+        odom_msg.child_frame_id = self.base_link
         odom_msg.pose.pose.position.x = self.obs["poses_x"][agent_idx]
         odom_msg.pose.pose.position.y = self.obs["poses_y"][agent_idx]
         odom_msg.pose.pose.position.z = 0.0
@@ -239,7 +245,7 @@ class GymBridge(Node):
         tf_stamped = TransformStamped()
         tf_stamped.header.stamp = timestamp
         tf_stamped.header.frame_id = "map"
-        tf_stamped.child_frame_id = self.agent_names[agent_idx] + "/base_link"
+        tf_stamped.child_frame_id = self.base_link
         tf_stamped.transform = tf
 
         self.br.sendTransform(tf_stamped)
@@ -268,7 +274,7 @@ class GymBridge(Node):
         laser_tf.header.stamp = timestamp
         laser_tf.transform.translation.x = self.scan_distance_to_base_link
         laser_tf.transform.rotation.w = 1.0
-        laser_tf.header.frame_id = self.agent_names[agent_idx] + "/base_link"
+        laser_tf.header.frame_id = "/laser"
         laser_tf.child_frame_id = self.agent_names[agent_idx] + "/laser"
         self.br.sendTransform(laser_tf)
 
