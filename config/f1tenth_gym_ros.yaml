@@ -1,0 +1,27 @@
+simulator:
+  ros__parameters:
+    update_rate: 40.0
+    number_of_agents: 1
+
+    drive_topic: "/drive"
+    odom_topic: "/pf/pose/odom"
+    base_link: "/laser"
+
+    # define agents
+    agent_names: ["robot1"]
+    agents:
+      robot1:
+        color: "blue"
+        pose_x: 0.0
+        pose_y: -1.0
+        pose_theta: -3.1416
+        max_speed: 2.0
+
+    # laserscan parameters
+    scan_distance_to_base_link: 0.2
+    scan_fov: 4.7124
+    scan_beams: 1081
+
+    # map parameters
+    map_name: "race_f1tenth_icra_2023_short"
+    map_img_ext: ".pgm"
