@@ -39,7 +39,7 @@ from transforms3d import euler
 
 class GymBridge(Node):
     def __init__(self):
-        super().__init__("gym_bridge")  # type: ignore
+        super().__init__("gym_bridge", parameter_overrides=[])
 
         self.num_agents: int = int(
             self.declare_parameter("number_of_agents").value or 1
@@ -92,6 +92,20 @@ class GymBridge(Node):
 
         # TF broadcaster
         self.br = TransformBroadcaster(self)
+
+        self.ego_reset_sub = self.create_subscription(
+            PoseWithCovarianceStamped, "/initialpose", self.ego_reset_callback, 10
+        )
+
+    def ego_reset_callback(self, pose_msg):
+        rx = pose_msg.pose.pose.position.x
+        ry = pose_msg.pose.pose.position.y
+        rqx = pose_msg.pose.pose.orientation.x
+        rqy = pose_msg.pose.pose.orientation.y
+        rqz = pose_msg.pose.pose.orientation.z
+        rqw = pose_msg.pose.pose.orientation.w
+        _, _, rtheta = euler.quat2euler([rqw, rqx, rqy, rqz], axes="sxyz")
+        self.obs, _, self.done, _ = self.env.reset(np.array([[rx, ry, rtheta]]))
 
     def init_robots(self):
         # Init robot poses

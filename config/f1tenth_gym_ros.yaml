@@ -14,8 +14,8 @@ simulator:
         color: "blue"
         pose_x: 0.0
         pose_y: -1.0
-        pose_theta: -3.1416
-        max_speed: 2.0
+        pose_theta: 0.0
+        max_speed: 10.0
 
     # laserscan parameters
     scan_distance_to_base_link: 0.2
