@@ -47,10 +47,16 @@ class GymBridge(Node):
         self.agent_names: list[str] = self.declare_parameter(
             "agent_names", ["agent1"]
         ).value or ["robot1"]
-
-        self.scan_distance_to_base_link = self.declare_parameter(
-            "scan_distance_to_base_link"
-        ).value
+        self.agent_names = self.agent_names[0:self.num_agents]
+        self.start_xs: list[float] = self.declare_parameter(
+            "start_xs", [0.0]
+        ).value or [0.0]
+        self.start_ys: list[float] = self.declare_parameter(
+            "start_ys", [0.0]
+        ).value or [0.0]
+        self.start_thetas: list[float] = self.declare_parameter(
+            "start_thetas", [0.0]
+        ).value or [0.0]
 
         self.scan_fov: float = float(
             self.declare_parameter("scan_fov").value or 4.71238898038469
@@ -89,13 +95,8 @@ class GymBridge(Node):
 
     def init_robots(self):
         # Init robot poses
-        poses = []
-        for name in self.agent_names:
-            pose_x = self.declare_parameter(f"agents.{name}.pose_x").value
-            pose_y = self.declare_parameter(f"agents.{name}.pose_y").value
-            pose_theta = self.declare_parameter(f"agents.{name}.pose_theta").value
-            poses.append([pose_x, pose_y, pose_theta])
-        self.obs, _, self.done, _ = self.env.reset(np.array(poses))
+        poses = np.array([self.start_xs, self.start_ys, self.start_thetas]).T
+        self.obs, _, self.done, _ = self.env.reset(poses[0:self.num_agents])
 
         # Scan params
         self.angle_min = -self.scan_fov / 2.0
@@ -176,9 +177,6 @@ class GymBridge(Node):
             self._publish_odom(timestamp, i)
             self._publish_transforms(timestamp, i)
             self._publish_wheel_transforms(timestamp, i)
-            self._publish_laser_transforms(
-                timestamp, i
-            )  # TODO: check if this is necessary
 
     def _update_sim_state(self):
         self.obs, _, self.done, _ = self.env.step(
@@ -188,7 +186,7 @@ class GymBridge(Node):
     def _publish_scan(self, timestamp, agent_idx):
         scan = LaserScan()
         scan.header.stamp = timestamp
-        scan.header.frame_id = self.agent_names[agent_idx] + "/laser"
+        scan.header.frame_id = self.agent_names[agent_idx] + "/base_link"
 
         scan.angle_min = self.angle_min
         scan.angle_max = self.angle_max
@@ -262,15 +260,6 @@ class GymBridge(Node):
         wheel_tf.header.frame_id = self.agent_names[agent_idx] + "/front_right_hinge"
         wheel_tf.child_frame_id = self.agent_names[agent_idx] + "/front_right_wheel"
         self.br.sendTransform(wheel_tf)
-
-    def _publish_laser_transforms(self, timestamp, agent_idx):
-        laser_tf = TransformStamped()
-        laser_tf.header.stamp = timestamp
-        laser_tf.transform.translation.x = self.scan_distance_to_base_link
-        laser_tf.transform.rotation.w = 1.0
-        laser_tf.header.frame_id = self.agent_names[agent_idx] + "/base_link"
-        laser_tf.child_frame_id = self.agent_names[agent_idx] + "/laser"
-        self.br.sendTransform(laser_tf)
 
 
 def main(args=None):
