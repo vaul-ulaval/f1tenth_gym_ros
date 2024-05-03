@@ -41,37 +41,15 @@ class GymBridge(Node):
     def __init__(self):
         super().__init__("gym_bridge")  # type: ignore
 
-        self.num_agents: int = int(
-            self.declare_parameter("number_of_agents").value or 1
-        )
-        self.agent_names: list[str] = self.declare_parameter(
-            "agent_names", ["agent1"]
-        ).value or ["robot1"]
-        self.agent_names = self.agent_names[0:self.num_agents]
-        self.start_xs: list[float] = self.declare_parameter(
-            "start_xs", [0.0]
-        ).value or [0.0]
-        self.start_ys: list[float] = self.declare_parameter(
-            "start_ys", [0.0]
-        ).value or [0.0]
-        self.start_thetas: list[float] = self.declare_parameter(
-            "start_thetas", [0.0]
-        ).value or [0.0]
-
-        self.scan_fov: float = float(
-            self.declare_parameter("scan_fov").value or 4.71238898038469
-        )
-        self.scan_beams: int = int(self.declare_parameter("scan_beams").value or 1081)
-        map_path = self.declare_parameter("map_path").value
-        map_img_ext = self.declare_parameter("map_img_ext").value
-        update_rate = self.declare_parameter("update_rate", 40.0).value
+        self.init_parameters();
 
         # env backend
         self.env = gym.make(
             "f110_gym:f110-v0",
-            map=map_path,
-            map_ext=map_img_ext,
+            map=self.map_path,
+            map_ext=self.map_img_ext,
             num_agents=self.num_agents,
+            timestep=1/self.update_rate
         )
 
         # Init robot poses
@@ -84,14 +62,39 @@ class GymBridge(Node):
         self.init_subscribers()
 
         # Timers
-        if update_rate is None:
+        if self.update_rate is None:
             raise ValueError("update_rate is not initialized")
         self.drive_timer = self.create_timer(
-            1.0 / update_rate, self.sim_update_callback
+            1.0 / self.update_rate, self.sim_update_callback
         )
 
-        # TF broadcaster
-        self.br = TransformBroadcaster(self)
+    
+    def init_parameters(self):
+
+        self.num_agents: int = self.declare_parameter("number_of_agents", 1).value
+        self.agent_names: list[str] = self.declare_parameter("agent_names", [""]).value
+
+        if self.num_agents == 1:
+            self.agent_names = [""]
+        else: 
+            self.agent_names = [self.agent_names[i] + "/" for i in range(0, self.num_agents)]
+            
+        self.start_xs: list[float] = self.declare_parameter("start_xs", [0.0]).value
+        self.start_ys: list[float] = self.declare_parameter("start_ys", [0.0]).value
+        self.start_thetas: list[float] = self.declare_parameter("start_thetas", [0.0]).value
+
+        self.scan_fov: float = self.declare_parameter("scan_fov", 4.71238898038469).value
+        self.scan_beams: int = self.declare_parameter("scan_beams", 1081).value
+
+        self.map_path: str = self.declare_parameter("map_path").value
+        self.map_img_ext: str = self.declare_parameter("map_img_ext").value
+
+        self.update_rate: float = self.declare_parameter("update_rate", 40.0).value
+        self.publish_tf: bool = self.declare_parameter("publish_tf", True).value
+        self.tf_frame: str = self.declare_parameter("tf_frame", "map").value
+
+        self.odom_topic: str = self.declare_parameter("odom_topic", "odom").value
+        self.scan_topic: str = self.declare_parameter("scan_topic", "scan").value
 
     def init_robots(self):
         # Init robot poses
@@ -110,28 +113,29 @@ class GymBridge(Node):
         self.speed_commands = np.zeros(self.num_agents)
         self.drive_published = np.zeros(self.num_agents, dtype=bool)
         for agent_name in self.agent_names:
-            scan_pub = self.create_publisher(LaserScan, agent_name + "/scan", 10)
-            odom_pub = self.create_publisher(Odometry, agent_name + "/odom", 10)
+            scan_pub = self.create_publisher(LaserScan, agent_name + self.scan_topic, 10)
+            odom_pub = self.create_publisher(Odometry, agent_name + self.odom_topic, 10)
             self.scan_pubs.append(scan_pub)
             self.odom_pubs.append(odom_pub)
+        self.tf_broadcaster = TransformBroadcaster(self)
 
     def init_subscribers(self):
         for i, agent_name in enumerate(self.agent_names):
             self.create_subscription(
                 AckermannDriveStamped,
-                agent_name + "/drive",
+                agent_name + "drive",
                 lambda x, idx=i: self.drive_callback(x, idx),
                 10,
             )
             self.create_subscription(
                 PoseWithCovarianceStamped,
-                agent_name + "/set_pose",
+                agent_name + "initialpose",
                 lambda x, idx=i: self.reset_callback(x, idx),
                 10,
             )
             self.create_subscription(
                 Twist,
-                agent_name + "/cmd_vel",
+                agent_name + "cmd_vel",
                 lambda x, idx=i: self.teleop_callback(x, idx),
                 10,
             )
@@ -175,8 +179,9 @@ class GymBridge(Node):
         for i in range(self.num_agents):
             self._publish_scan(timestamp, i)
             self._publish_odom(timestamp, i)
-            self._publish_transforms(timestamp, i)
             self._publish_wheel_transforms(timestamp, i)
+            if self.publish_tf:
+                self._publish_transforms(timestamp, i)
 
     def _update_sim_state(self):
         self.obs, _, self.done, _ = self.env.step(
@@ -186,7 +191,7 @@ class GymBridge(Node):
     def _publish_scan(self, timestamp, agent_idx):
         scan = LaserScan()
         scan.header.stamp = timestamp
-        scan.header.frame_id = self.agent_names[agent_idx] + "/base_link"
+        scan.header.frame_id = self.agent_names[agent_idx] + "base_link"
 
         scan.angle_min = self.angle_min
         scan.angle_max = self.angle_max
@@ -201,7 +206,7 @@ class GymBridge(Node):
         odom_msg = Odometry()
         odom_msg.header.stamp = timestamp
         odom_msg.header.frame_id = "map"
-        odom_msg.child_frame_id = self.agent_names[agent_idx] + "/base_link"
+        odom_msg.child_frame_id = self.agent_names[agent_idx] + "base_link"
         odom_msg.pose.pose.position.x = self.obs["poses_x"][agent_idx]
         odom_msg.pose.pose.position.y = self.obs["poses_y"][agent_idx]
         odom_msg.pose.pose.position.z = 0.0
@@ -236,11 +241,11 @@ class GymBridge(Node):
 
         tf_stamped = TransformStamped()
         tf_stamped.header.stamp = timestamp
-        tf_stamped.header.frame_id = "map"
-        tf_stamped.child_frame_id = self.agent_names[agent_idx] + "/base_link"
+        tf_stamped.header.frame_id = self.tf_frame
+        tf_stamped.child_frame_id = self.agent_names[agent_idx] + "base_link"
         tf_stamped.transform = tf
 
-        self.br.sendTransform(tf_stamped)
+        self.tf_broadcaster.sendTransform(tf_stamped)
 
     def _publish_wheel_transforms(self, timestamp, agent_idx):
         wheel_tf = TransformStamped()
@@ -253,13 +258,13 @@ class GymBridge(Node):
         wheel_tf.transform.rotation.z = ego_wheel_quat[3]
         wheel_tf.transform.rotation.w = ego_wheel_quat[0]
 
-        wheel_tf.header.frame_id = self.agent_names[agent_idx] + "/front_left_hinge"
-        wheel_tf.child_frame_id = self.agent_names[agent_idx] + "/front_left_wheel"
-        self.br.sendTransform(wheel_tf)
+        wheel_tf.header.frame_id = self.agent_names[agent_idx] + "front_left_hinge"
+        wheel_tf.child_frame_id = self.agent_names[agent_idx] + "front_left_wheel"
+        self.tf_broadcaster.sendTransform(wheel_tf)
 
-        wheel_tf.header.frame_id = self.agent_names[agent_idx] + "/front_right_hinge"
-        wheel_tf.child_frame_id = self.agent_names[agent_idx] + "/front_right_wheel"
-        self.br.sendTransform(wheel_tf)
+        wheel_tf.header.frame_id = self.agent_names[agent_idx] + "front_right_hinge"
+        wheel_tf.child_frame_id = self.agent_names[agent_idx] + "front_right_wheel"
+        self.tf_broadcaster.sendTransform(wheel_tf)
 
 
 def main(args=None):
