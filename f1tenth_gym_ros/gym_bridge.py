@@ -286,11 +286,26 @@ class GymBridge(Node):
     def _publish_laser_transforms(self, timestamp, agent_idx):
         laser_tf = TransformStamped()
         laser_tf.header.stamp = timestamp
-        laser_tf.transform.translation.x = self.scan_distance_to_base_link
+        laser_tf.transform.translation.x = 0.2
         laser_tf.transform.rotation.w = 1.0
-        laser_tf.header.frame_id = "/laser"
-        laser_tf.child_frame_id = self.agent_names[agent_idx] + "/laser"
+        laser_tf.header.frame_id = "/base_link"
+        laser_tf.child_frame_id = "/laser"
         self.br.sendTransform(laser_tf)
+
+        laser_tf2 = TransformStamped()
+        laser_tf2.header.stamp = timestamp
+        laser_tf2.transform.rotation.w = 1.0
+        laser_tf2.header.frame_id = "/base_link"
+        laser_tf2.child_frame_id = self.agent_names[agent_idx] + "/laser"
+        self.br.sendTransform(laser_tf2)
+
+        rear_axle_tf = TransformStamped()
+        rear_axle_tf.header.stamp = timestamp
+        rear_axle_tf.transform.translation.x = -0.2
+        rear_axle_tf.transform.rotation.w = 1.0
+        rear_axle_tf.header.frame_id = "/base_link"
+        rear_axle_tf.child_frame_id = "/rear_axle"
+        self.br.sendTransform(rear_axle_tf)
 
 
 def main(args=None):

@@ -5,7 +5,7 @@ simulator:
 
     drive_topic: "/drive"
     odom_topic: "pf/pose/odom"
-    base_link: "/laser"
+    base_link: "/base_link"
 
     # define agents
     agent_names: ["robot1"]
@@ -23,5 +23,5 @@ simulator:
     scan_beams: 1081
 
     # map parameters
-    map_name: "race_f1tenth_icra_2023_short"
+    map_name: "will"
     map_img_ext: ".pgm"

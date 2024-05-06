@@ -27,9 +27,8 @@ def generate_launch_description():
     path_to_ws = os.getenv("PATH_TO_WS") or "ERROR"
     map_path = os.path.join(
         path_to_ws,
-        "f1tenth_ws",
+        "ws",
         "src",
-        "main",
         "vaul_f1tenth_system",
         "maps",
         map_name,
