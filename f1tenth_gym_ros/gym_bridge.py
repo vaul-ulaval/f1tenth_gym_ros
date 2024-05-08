@@ -49,7 +49,7 @@ class GymBridge(Node):
             map=self.map_path,
             map_ext=self.map_img_ext,
             num_agents=self.num_agents,
-            timestep=1/self.update_rate
+            timestep=1/self.physics_rate
         )
 
         # Init robot poses
@@ -62,10 +62,10 @@ class GymBridge(Node):
         self.init_subscribers()
 
         # Timers
-        if self.update_rate is None:
+        if self.scan_rate is None:
             raise ValueError("update_rate is not initialized")
         self.drive_timer = self.create_timer(
-            1.0 / self.update_rate, self.sim_update_callback
+            1.0 / self.scan_rate, self.sim_update_callback
         )
 
     
@@ -89,7 +89,8 @@ class GymBridge(Node):
         self.map_path: str = self.declare_parameter("map_path").value
         self.map_img_ext: str = self.declare_parameter("map_img_ext").value
 
-        self.update_rate: float = self.declare_parameter("update_rate", 40.0).value
+        self.scan_rate: float = self.declare_parameter("scan_rate", 40.0).value
+        self.physics_rate: float = self.declare_parameter("physics_rate", 100.0).value
         self.publish_tf: bool = self.declare_parameter("publish_tf", True).value
         self.tf_frame: str = self.declare_parameter("tf_frame", "map").value
 
