@@ -57,7 +57,7 @@ bridge:
     scale: 1.0
 
     # number of agents, currently only supports 1 or 2
-    num_agent: 1
+    num_agent: 2
 
     # ego starting pose on map
     sx: 0.0
