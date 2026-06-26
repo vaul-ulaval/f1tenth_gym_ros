@@ -32,7 +32,6 @@ RUN apt-get update && \
         nano \
         vim \
         python3-pip \
-        python3-venv \
         python3-dev \
         libeigen3-dev \
         tmux \
@@ -43,13 +42,8 @@ WORKDIR /sim_ws
 RUN mkdir -p /sim_ws/src/f1tenth_gym_ros
 COPY . /sim_ws/src/f1tenth_gym_ros
 
-RUN python3 -m venv --system-site-packages /sim_ws/.venv && \
-    source /sim_ws/.venv/bin/activate && \
-    pip install -U pip && \
+RUN pip install -U pip && \
     pip install -e /sim_ws/src/f1tenth_gym_ros/f1tenth_gym
-
-ENV VIRTUAL_ENV=/sim_ws/.venv
-ENV PATH="$VIRTUAL_ENV/bin:$PATH"
 
 RUN source /opt/ros/humble/setup.bash && \
     apt-get update && \
@@ -59,5 +53,8 @@ RUN source /opt/ros/humble/setup.bash && \
     rosdep update && \
     rosdep install -i --from-paths /sim_ws/src --rosdistro humble -y && \
     colcon build --symlink-install
+
+RUN echo "source /opt/ros/humble/setup.bash" >> ~/.bashrc
+RUN echo "source /sim_ws/install/local_setup.bash" >> ~/.bashrc
 
 ENTRYPOINT ["/bin/bash"]

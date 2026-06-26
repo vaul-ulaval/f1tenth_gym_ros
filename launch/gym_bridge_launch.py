@@ -73,7 +73,7 @@ def generate_launch_description():
     foxglove_config = config_dict.get('foxglove', {})
     if 'ros__parameters' in foxglove_config:
         foxglove_config = foxglove_config['ros__parameters']
-    open_foxglove_default = str(foxglove_config.get('open_foxglove', True)).lower()
+    open_foxglove_default = str(foxglove_config.get('open_foxglove', False)).lower()
     foxglove_target_default = str(foxglove_config.get('target', 'browser')).lower()
     if foxglove_target_default not in ('browser', 'studio'):
         raise ValueError("config/foxglove/target must be either 'browser' or 'studio'.")
