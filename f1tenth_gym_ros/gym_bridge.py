@@ -33,7 +33,6 @@ from geometry_msgs.msg import PoseStamped
 from geometry_msgs.msg import PoseWithCovarianceStamped
 from geometry_msgs.msg import Twist
 from geometry_msgs.msg import TransformStamped
-from geometry_msgs.msg import Transform
 from geometry_msgs.msg import Quaternion
 from ackermann_msgs.msg import AckermannDriveStamped
 from tf2_ros import TransformBroadcaster
@@ -328,8 +327,8 @@ class GymBridge(Node):
             self.get_logger().info('Running in asynchronous mode. Simulation will step using a timer callback.')
             # sim physical step timer
             self.drive_timer = self.create_timer(0.01, self.drive_timer_callback)
-            # topic publishing timer
-            self.timer = self.create_timer(0.004, self.timer_callback)
+            # topic publishing timer at 40 Hz to match real car
+            self.timer = self.create_timer(0.025, self.timer_callback)
 
         # transform broadcaster
         self.br = TransformBroadcaster(self)
@@ -530,8 +529,6 @@ class GymBridge(Node):
         # pub tf
         self._publish_odom(ts)
         self._publish_transforms(ts)
-        self._publish_laser_transforms(ts)
-        self._publish_wheel_transforms(ts)
 
     def _update_sim_state(self):
         sim_state = self.env.unwrapped.sim.state
@@ -599,99 +596,95 @@ class GymBridge(Node):
             self.ego_opp_odom_pub.publish(opp_odom)
 
     def _publish_transforms(self, ts):
-        ego_t = Transform()
-        ego_t.translation.x = self.ego_pose[0]
-        ego_t.translation.y = self.ego_pose[1]
-        ego_t.translation.z = 0.0
+        transforms = []
+
         ego_quat = Rotation.from_euler('xyz', [0.0, 0.0, self.ego_pose[2]]).as_quat()
-        ego_t.rotation.x = ego_quat[0]
-        ego_t.rotation.y = ego_quat[1]
-        ego_t.rotation.z = ego_quat[2]
-        ego_t.rotation.w = ego_quat[3]
+        ego_base = TransformStamped()
+        ego_base.header.stamp = ts
+        ego_base.header.frame_id = 'map'
+        ego_base.child_frame_id = self.ego_namespace + '/base_link'
+        ego_base.transform.translation.x = self.ego_pose[0]
+        ego_base.transform.translation.y = self.ego_pose[1]
+        ego_base.transform.translation.z = 0.0
+        ego_base.transform.rotation.x = ego_quat[0]
+        ego_base.transform.rotation.y = ego_quat[1]
+        ego_base.transform.rotation.z = ego_quat[2]
+        ego_base.transform.rotation.w = ego_quat[3]
+        transforms.append(ego_base)
 
-        ego_ts = TransformStamped()
-        ego_ts.transform = ego_t
-        ego_ts.header.stamp = ts
-        ego_ts.header.frame_id = 'map'
-        ego_ts.child_frame_id = self.ego_namespace + '/base_link'
-        self.br.sendTransform(ego_ts)
-
-        if self.has_opp:
-            opp_t = Transform()
-            opp_t.translation.x = self.opp_pose[0]
-            opp_t.translation.y = self.opp_pose[1]
-            opp_t.translation.z = 0.0
-            opp_quat = Rotation.from_euler('xyz', [0.0, 0.0, self.opp_pose[2]]).as_quat()
-            opp_t.rotation.x = opp_quat[0]
-            opp_t.rotation.y = opp_quat[1]
-            opp_t.rotation.z = opp_quat[2]
-            opp_t.rotation.w = opp_quat[3]
-
-            opp_ts = TransformStamped()
-            opp_ts.transform = opp_t
-            opp_ts.header.stamp = ts
-            opp_ts.header.frame_id = 'map'
-            opp_ts.child_frame_id = self.opp_namespace + '/base_link'
-            self.br.sendTransform(opp_ts)
-
-    def _publish_wheel_transforms(self, ts):
-        ego_wheel_ts = TransformStamped()
-        ego_wheel_quat = Rotation.from_euler('xyz', [0., 0., self.ego_steer]).as_quat()
-        ego_wheel_ts.transform.rotation.x = ego_wheel_quat[0]
-        ego_wheel_ts.transform.rotation.y = ego_wheel_quat[1]
-        ego_wheel_ts.transform.rotation.z = ego_wheel_quat[2]
-        ego_wheel_ts.transform.rotation.w = ego_wheel_quat[3]
-        ego_wheel_ts.header.stamp = ts
-        ego_wheel_ts.header.frame_id = self.ego_namespace + '/front_left_hinge'
-        ego_wheel_ts.child_frame_id = self.ego_namespace + '/front_left_wheel'
-        self.br.sendTransform(ego_wheel_ts)
-        ego_wheel_ts.header.frame_id = self.ego_namespace + '/front_right_hinge'
-        ego_wheel_ts.child_frame_id = self.ego_namespace + '/front_right_wheel'
-        self.br.sendTransform(ego_wheel_ts)
-
-        if self.has_opp:
-            opp_wheel_ts = TransformStamped()
-            opp_wheel_quat = Rotation.from_euler('xyz', [0., 0., self.opp_steer]).as_quat()
-            opp_wheel_ts.transform.rotation.x = opp_wheel_quat[0]
-            opp_wheel_ts.transform.rotation.y = opp_wheel_quat[1]
-            opp_wheel_ts.transform.rotation.z = opp_wheel_quat[2]
-            opp_wheel_ts.transform.rotation.w = opp_wheel_quat[3]
-            opp_wheel_ts.header.stamp = ts
-            opp_wheel_ts.header.frame_id = self.opp_namespace + '/front_left_hinge'
-            opp_wheel_ts.child_frame_id = self.opp_namespace + '/front_left_wheel'
-            self.br.sendTransform(opp_wheel_ts)
-            opp_wheel_ts.header.frame_id = self.opp_namespace + '/front_right_hinge'
-            opp_wheel_ts.child_frame_id = self.opp_namespace + '/front_right_wheel'
-            self.br.sendTransform(opp_wheel_ts)
-
-    def _publish_laser_transforms(self, ts):
         scan_quat = Rotation.from_euler('xyz', [0.0, 0.0, self.scan_tf[2]]).as_quat()
-        ego_scan_ts = TransformStamped()
-        ego_scan_ts.transform.translation.x = self.scan_tf[0]
-        ego_scan_ts.transform.translation.y = self.scan_tf[1]
-        ego_scan_ts.transform.translation.z = 0.0
-        ego_scan_ts.transform.rotation.x = scan_quat[0]
-        ego_scan_ts.transform.rotation.y = scan_quat[1]
-        ego_scan_ts.transform.rotation.z = scan_quat[2]
-        ego_scan_ts.transform.rotation.w = scan_quat[3]
-        ego_scan_ts.header.stamp = ts
-        ego_scan_ts.header.frame_id = self.ego_namespace + '/base_link'
-        ego_scan_ts.child_frame_id = self.ego_namespace + '/laser'
-        self.br.sendTransform(ego_scan_ts)
+        ego_laser = TransformStamped()
+        ego_laser.header.stamp = ts
+        ego_laser.header.frame_id = self.ego_namespace + '/base_link'
+        ego_laser.child_frame_id = self.ego_namespace + '/laser'
+        ego_laser.transform.translation.x = self.scan_tf[0]
+        ego_laser.transform.translation.y = self.scan_tf[1]
+        ego_laser.transform.translation.z = 0.0
+        ego_laser.transform.rotation.x = scan_quat[0]
+        ego_laser.transform.rotation.y = scan_quat[1]
+        ego_laser.transform.rotation.z = scan_quat[2]
+        ego_laser.transform.rotation.w = scan_quat[3]
+        transforms.append(ego_laser)
+
+        ego_wheel_quat = Rotation.from_euler('xyz', [0.0, 0.0, self.ego_steer]).as_quat()
+        for hinge, wheel in (
+            (self.ego_namespace + '/front_left_hinge', self.ego_namespace + '/front_left_wheel'),
+            (self.ego_namespace + '/front_right_hinge', self.ego_namespace + '/front_right_wheel'),
+        ):
+            wts = TransformStamped()
+            wts.header.stamp = ts
+            wts.header.frame_id = hinge
+            wts.child_frame_id = wheel
+            wts.transform.rotation.x = ego_wheel_quat[0]
+            wts.transform.rotation.y = ego_wheel_quat[1]
+            wts.transform.rotation.z = ego_wheel_quat[2]
+            wts.transform.rotation.w = ego_wheel_quat[3]
+            transforms.append(wts)
 
         if self.has_opp:
-            opp_scan_ts = TransformStamped()
-            opp_scan_ts.transform.translation.x = self.scan_tf[0]
-            opp_scan_ts.transform.translation.y = self.scan_tf[1]
-            opp_scan_ts.transform.translation.z = 0.0
-            opp_scan_ts.transform.rotation.x = scan_quat[0]
-            opp_scan_ts.transform.rotation.y = scan_quat[1]
-            opp_scan_ts.transform.rotation.z = scan_quat[2]
-            opp_scan_ts.transform.rotation.w = scan_quat[3]
-            opp_scan_ts.header.stamp = ts
-            opp_scan_ts.header.frame_id = self.opp_namespace + '/base_link'
-            opp_scan_ts.child_frame_id = self.opp_namespace + '/laser'
-            self.br.sendTransform(opp_scan_ts)
+            opp_quat = Rotation.from_euler('xyz', [0.0, 0.0, self.opp_pose[2]]).as_quat()
+            opp_base = TransformStamped()
+            opp_base.header.stamp = ts
+            opp_base.header.frame_id = 'map'
+            opp_base.child_frame_id = self.opp_namespace + '/base_link'
+            opp_base.transform.translation.x = self.opp_pose[0]
+            opp_base.transform.translation.y = self.opp_pose[1]
+            opp_base.transform.translation.z = 0.0
+            opp_base.transform.rotation.x = opp_quat[0]
+            opp_base.transform.rotation.y = opp_quat[1]
+            opp_base.transform.rotation.z = opp_quat[2]
+            opp_base.transform.rotation.w = opp_quat[3]
+            transforms.append(opp_base)
+
+            opp_laser = TransformStamped()
+            opp_laser.header.stamp = ts
+            opp_laser.header.frame_id = self.opp_namespace + '/base_link'
+            opp_laser.child_frame_id = self.opp_namespace + '/laser'
+            opp_laser.transform.translation.x = self.scan_tf[0]
+            opp_laser.transform.translation.y = self.scan_tf[1]
+            opp_laser.transform.translation.z = 0.0
+            opp_laser.transform.rotation.x = scan_quat[0]
+            opp_laser.transform.rotation.y = scan_quat[1]
+            opp_laser.transform.rotation.z = scan_quat[2]
+            opp_laser.transform.rotation.w = scan_quat[3]
+            transforms.append(opp_laser)
+
+            opp_wheel_quat = Rotation.from_euler('xyz', [0.0, 0.0, self.opp_steer]).as_quat()
+            for hinge, wheel in (
+                (self.opp_namespace + '/front_left_hinge', self.opp_namespace + '/front_left_wheel'),
+                (self.opp_namespace + '/front_right_hinge', self.opp_namespace + '/front_right_wheel'),
+            ):
+                wts = TransformStamped()
+                wts.header.stamp = ts
+                wts.header.frame_id = hinge
+                wts.child_frame_id = wheel
+                wts.transform.rotation.x = opp_wheel_quat[0]
+                wts.transform.rotation.y = opp_wheel_quat[1]
+                wts.transform.rotation.z = opp_wheel_quat[2]
+                wts.transform.rotation.w = opp_wheel_quat[3]
+                transforms.append(wts)
+
+        self.br.sendTransform(transforms)
 
 def main(args=None):
     rclpy.init(args=args)
