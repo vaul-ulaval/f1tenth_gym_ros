@@ -26,6 +26,7 @@ SHELL ["/bin/bash", "-c"]
 
 ENV DEBIAN_FRONTEND=noninteractive
 
+# Layer 1: System packages — only rebuilds when this list changes
 RUN apt-get update && \
     apt-get install -y --no-install-recommends \
         git \
@@ -39,12 +40,17 @@ RUN apt-get update && \
     rm -rf /var/lib/apt/lists/*
 
 WORKDIR /sim_ws
-RUN mkdir -p /sim_ws/src/f1tenth_gym_ros
-COPY . /sim_ws/src/f1tenth_gym_ros
 
+# Layer 2: f1tenth_gym Python package and its deps
+# Only rebuilds when f1tenth_gym source or pyproject.toml changes, not when ROS code changes
+RUN mkdir -p /sim_ws/src/f1tenth_gym_ros
+COPY f1tenth_gym/ /sim_ws/src/f1tenth_gym_ros/f1tenth_gym/
 RUN pip install -U pip && \
     pip install -e /sim_ws/src/f1tenth_gym_ros/f1tenth_gym
 
+# Layer 3: ROS dependencies via rosdep
+# Only rebuilds when package.xml changes, not when source code changes
+COPY package.xml /sim_ws/src/f1tenth_gym_ros/package.xml
 RUN source /opt/ros/humble/setup.bash && \
     apt-get update && \
     if [ ! -f /etc/ros/rosdep/sources.list.d/20-default.list ]; then \
@@ -52,9 +58,21 @@ RUN source /opt/ros/humble/setup.bash && \
     fi && \
     rosdep update && \
     rosdep install -i --from-paths /sim_ws/src --rosdistro humble -y && \
+    rm -rf /var/lib/apt/lists/*
+
+# Layer 4: colcon build — only the files colcon actually needs, no README/Dockerfile/tests/etc.
+# Rebuilds only when ROS package source changes
+COPY setup.py setup.cfg /sim_ws/src/f1tenth_gym_ros/
+COPY resource/ /sim_ws/src/f1tenth_gym_ros/resource/
+COPY f1tenth_gym_ros/ /sim_ws/src/f1tenth_gym_ros/f1tenth_gym_ros/
+COPY launch/ /sim_ws/src/f1tenth_gym_ros/launch/
+COPY config/ /sim_ws/src/f1tenth_gym_ros/config/
+COPY maps/ /sim_ws/src/f1tenth_gym_ros/maps/
+COPY urdf/ /sim_ws/src/f1tenth_gym_ros/urdf/
+RUN source /opt/ros/humble/setup.bash && \
     colcon build --symlink-install
 
-RUN echo "source /opt/ros/humble/setup.bash" >> ~/.bashrc
-RUN echo "source /sim_ws/install/local_setup.bash" >> ~/.bashrc
+RUN echo "source /opt/ros/humble/setup.bash" >> ~/.bashrc && \
+    echo "source /sim_ws/install/local_setup.bash" >> ~/.bashrc
 
 ENTRYPOINT ["/bin/bash"]

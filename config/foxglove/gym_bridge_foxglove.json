@@ -45,15 +45,16 @@
         }
       },
       "cameraState": {
-        "distance": 20,
         "perspective": true,
-        "phi": 60,
-        "target": [
-          0,
-          0,
-          0
-        ],
+        "distance": 30.146795390545144,
+        "phi": 0.000057666074089296296,
+        "thetaOffset": -12.359332281404635,
         "targetOffset": [
+          7.384698275735757,
+          3.3542515987122665,
+          -2.164215213020146e-22
+        ],
+        "target": [
           0,
           0,
           0
@@ -64,7 +65,6 @@
           0,
           1
         ],
-        "thetaOffset": 45,
         "fovy": 45,
         "near": 0.5,
         "far": 5000
@@ -73,17 +73,73 @@
       "fixedFrame": "map",
       "scene": {
         "transforms": {
-          "visible": false
+          "visible": true,
+          "showLabel": false
         }
       },
       "transforms": {
         "frame:map": {
+          "visible": false
+        },
+        "frame:ego_racecar/base_link": {
+          "visible": false
+        },
+        "frame:ego_racecar/front_left_hinge": {
+          "visible": false
+        },
+        "frame:ego_racecar/front_left_wheel": {
+          "visible": false
+        },
+        "frame:ego_racecar/front_right_hinge": {
+          "visible": false
+        },
+        "frame:ego_racecar/front_right_wheel": {
+          "visible": false
+        },
+        "frame:ego_racecar/laser": {
+          "visible": false
+        },
+        "frame:opp_racecar/base_link": {
           "visible": true
+        },
+        "frame:opp_racecar/laser": {
+          "visible": true
+        },
+        "frame:opp_racecar/front_left_hinge": {
+          "visible": false
+        },
+        "frame:opp_racecar/front_left_wheel": {
+          "visible": false
+        },
+        "frame:opp_racecar/front_right_hinge": {
+          "visible": false
+        },
+        "frame:opp_racecar/front_right_wheel": {
+          "visible": false
+        },
+        "frame:opp_racecar/back_left_wheel": {
+          "visible": false
+        },
+        "frame:opp_racecar/back_right_wheel": {
+          "visible": false
+        },
+        "frame:opp_racecar/laser_model": {
+          "visible": false
+        },
+        "frame:ego_racecar/back_left_wheel": {
+          "visible": false
+        },
+        "frame:ego_racecar/back_right_wheel": {
+          "visible": false
+        },
+        "frame:ego_racecar/laser_model": {
+          "visible": false
         }
       },
       "topics": {
         "/map": {
-          "visible": true
+          "visible": true,
+          "drawBehind": true
         },
         "/move_base_simple/goal": {
           "visible": false
@@ -100,7 +156,15 @@
             "#ec0303ff",
             "#12fd00ff"
           ],
-          "pointSize": 5
+          "pointSize": 7.83,
+          "flatColor": "#ff0000ff"
+        },
+        "/opp_scan": {
+          "visible": true,
+          "colorField": "intensity",
+          "colorMode": "flat",
+          "colorMap": "turbo",
+          "pointSize": 4.49
         }
       },
       "publish": {
@@ -114,55 +178,12 @@
       },
       "imageMode": {}
     },
-    "RawMessages!os6rgs": {
-      "diffEnabled": false,
-      "diffMethod": "custom",
-      "diffTopicPath": "",
-      "showFullMessageForDiff": false,
-      "topicPath": "",
-      "fontSize": 12
-    },
-    "Image!3mnp456": {
-      "cameraState": {
-        "distance": 20,
-        "perspective": true,
-        "phi": 60,
-        "target": [
-          0,
-          0,
-          0
-        ],
-        "targetOffset": [
-          0,
-          0,
-          0
-        ],
-        "targetOrientation": [
-          0,
-          0,
-          0,
-          1
-        ],
-        "thetaOffset": 45,
-        "fovy": 45,
-        "near": 0.5,
-        "far": 5000
-      },
-      "followMode": "follow-pose",
-      "scene": {},
-      "transforms": {},
-      "topics": {},
-      "layers": {},
-      "publish": {
-        "type": "point",
-        "poseTopic": "/move_base_simple/goal",
-        "pointTopic": "/clicked_point",
-        "poseEstimateTopic": "/initialpose",
-        "poseEstimateXDeviation": 0.5,
-        "poseEstimateYDeviation": 0.5,
-        "poseEstimateThetaDeviation": 0.26179939
-      },
-      "imageMode": {}
+    "foxglove-teleop-twist-keyboard.Teleop Twist!1prkk1w": {
+      "publishRate": 40,
+      "maxLinearSpeed": 2,
+      "maxAngularSpeed": 2,
+      "topic": "/cmd_vel",
+      "messageSchema": "geometry_msgs/Twist"
     }
   },
   "globalVariables": {},
@@ -175,13 +196,8 @@
   },
   "layout": {
     "first": "3D!18i6zy7",
-    "second": {
-      "first": "Image!3mnp456",
-      "second": "RawMessages!os6rgs",
-      "direction": "column",
-      "splitPercentage": 30
-    },
-    "direction": "row",
-    "splitPercentage": 70
+    "second": "foxglove-teleop-twist-keyboard.Teleop Twist!1prkk1w",
+    "direction": "column",
+    "splitPercentage": 81.36707921079187
   }
 }
