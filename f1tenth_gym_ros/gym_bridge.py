@@ -163,6 +163,7 @@ class GymBridge(Node):
         self.declare_parameter('kb_teleop', True)
         self.declare_parameter('scale', 1.0)
         self.declare_parameter('vehicle_params', 'f1tenth')
+        self.declare_parameter('dynamic_model', 'st')
         self.declare_parameter('async_mode', True)
         # Flag to know whether to publish the sim time or not
         # Has to be different than use_sim_time so we can still use real time to trigger timer callbacks
@@ -185,6 +186,14 @@ class GymBridge(Node):
             self.vehicle_params = get_f1fifth_vehicle_parameters()
         else:
             raise ValueError('vehicle_params should be either f1tenth, fullscale, or f1fifth.')
+
+        dynamic_model_key = str(self.get_parameter('dynamic_model').value).lower()
+        try:
+            dynamic_model = DynamicModel.from_string(dynamic_model_key)
+        except ValueError:
+            raise ValueError('dynamic_model should be either ks, st, or mb.')
+        if dynamic_model == DynamicModel.MB and vehicle_params_key != 'fullscale':
+            raise ValueError("dynamic_model 'mb' requires vehicle_params 'fullscale'.")
 
         scale = self.get_parameter('scale').value
         map_path = self.get_parameter('map_path').value
@@ -250,7 +259,7 @@ class GymBridge(Node):
             timestep=0.01,
             integrator_timestep=0.01,
             integrator=IntegratorType.RK4,
-            dynamics_model=DynamicModel.ST,
+            dynamics_model=dynamic_model,
             loop_counter=loop_counter,
             compute_frenet_frame=compute_frenet,
         )

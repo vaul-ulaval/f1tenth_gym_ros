@@ -56,6 +56,10 @@ bridge:
     vehicle_params: 'f1tenth'
     scale: 1.0
 
+    # Dynamic model used by the simulator: 'ks' (kinematic single track),
+    # 'st' (single track) or 'mb' (multi-body, requires vehicle_params: 'fullscale')
+    dynamic_model: 'st'
+
     # number of agents, currently only supports 1 or 2
     num_agent: 1
 
